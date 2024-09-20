@@ -1,14 +1,14 @@
-﻿# Author: John Smith
+# Author: John Smith
 # Target File: calc.exe
 # Target File Version: 1.2.3.4
 # Description: An example patch file
 #===================================================
 # BinPatch Docs & Formatting:
 # MD5: <md5 checksum> (optional for file version verification)
-# Operation: <Remove | Insert | Overwrite>
+# Offset: <hex address/offset>
 # TargetBytes: <hex bytes> (for Remove or Overwrite)
-# NewBytes: <hex bytes> (for Append or Overwrite)
-# Offset: <hex address/offset> (Must be last parameter)
+# NewBytes: <hex bytes> (for Insert or Overwrite)
+# Operation: <Remove | Insert | Overwrite> (Must be last parameter)
 #===================================================
 
 
