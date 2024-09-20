@@ -31,7 +31,7 @@ namespace BinPatch
 
         #region VersionInfo
         string version = "0.0.1b";
-        string github = "TBD";
+        string github = "https://github.com/2003HondaCivic/BinPatch";
         #endregion VersionInfo
 
         public string? targetFilePath;
