@@ -1,0 +1,32 @@
+﻿# Author: John Smith
+# Target File: calc.exe
+# Target File Version: 1.2.3.4
+# Description: An example patch file
+#===================================================
+# BinPatch Docs & Formatting:
+# MD5: <md5 checksum> (optional for file version verification)
+# Operation: <Remove | Insert | Overwrite>
+# TargetBytes: <hex bytes> (for Remove or Overwrite)
+# NewBytes: <hex bytes> (for Append or Overwrite)
+# Offset: <hex address/offset> (Must be last parameter)
+#===================================================
+
+
+MD5: 2f82623f9523c0d167862cad0eff6806
+
+
+Offset: 0x0010
+TargetBytes: AABBCC
+NewBytes: 112233
+Operation: Overwrite
+
+Offset: 0x0020
+NewBytes: 445566
+Operation: Insert
+
+#This is an example comment
+#The instructions below remove X so you can Y
+
+Offset: 0x0030
+TargetBytes: 778899
+Operation: Remove
