@@ -13,7 +13,7 @@ Download the [source](https://github.com/2003HondaCivic/BinPatch/archive/refs/he
 
 ## Usage - Patching
 
-As simple as choosing the target file and the cooresponding .patch file and clicking patch. 
+As simple as choosing the target file and the cooresponding .patch file and clicking patch. All files that are patched are saved as FileName.ext.bak
 
 MD5 file hash is checked if the MD5 is provided in the .patch file. This is to ensure you patch the right file & version. To disable this comment out the MD5 section
 ```
