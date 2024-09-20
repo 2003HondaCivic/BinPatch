@@ -21,7 +21,7 @@ MD5: 2f82623f9523c0d167862cad0eff6806 (with check) -> #MD5 2f82623f9523c0d167862
 ```
 ## Usage - Creating patches
 
-Take the original binary and modified binary and put them into the cooresponding sections in the patch file generator, along with any other desired options. Click patch and "New Patch.patch" should be generated in the current working directory.
+Take the original binary and modified binary and put them into the cooresponding sections in the patch file generator, along with any other desired options. Click generate and "New Patch.patch" should be generated in the current working directory.
 
 BinPatch was primarily made with [instruction patching](https://www.tripwire.com/state-of-security/ghidra-101-binary-patching) in mind (however it will work with any file). I prefer [Ghidra](https://github.com/NationalSecurityAgency/ghidra) or [x64dbg](https://x64dbg.com/) to patch binaries.
 
