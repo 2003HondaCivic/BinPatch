@@ -110,7 +110,7 @@ namespace BinPatch
         }
         private void MainForm_Load(object sender, EventArgs e)
         {
-            this.Text = $"BinPatcher | v{Patcher.Instance.version}";
+            this.Text = $"BinPatch | v{Patcher.Instance.version}";
             PatcherForm = new Forms.PatcherForm();
             PatchGenForm = new PatchGenForm();
             SettingsForm = new SettingsForm();

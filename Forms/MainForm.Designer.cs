@@ -129,7 +129,7 @@
             Margin = new Padding(4, 6, 4, 6);
             MaximizeBox = false;
             Name = "MainForm";
-            Text = "File Patcher | vX.X.X";
+            Text = "BinPatch | vX.X.X";
             Load += MainForm_Load;
             controlsPanel.ResumeLayout(false);
             controlsPanel.PerformLayout();
