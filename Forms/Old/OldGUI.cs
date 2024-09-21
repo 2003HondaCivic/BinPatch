@@ -2,10 +2,10 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace BinPatch
 {
-    public partial class MainForm : Form
+    public partial class PatcherForm : Form
     {
-        public static MainForm Instance;
-        public MainForm()
+        public static PatcherForm Instance;
+        public PatcherForm()
         {
 
             InitializeComponent();

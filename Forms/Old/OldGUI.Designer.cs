@@ -1,6 +1,6 @@
 ﻿namespace BinPatch
 {
-    partial class MainForm
+    partial class PatcherForm
     {
         /// <summary>
         ///  Required designer variable.
@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(PatcherForm));
             logBox = new RichTextBox();
             TargetPathBox = new TextBox();
             PatchPathBox = new TextBox();
@@ -44,7 +44,7 @@
             TFileLabel = new Label();
             PFileLabel = new Label();
             PatchBttn = new Button();
-            MainProgressBar = new ProgressBar();
+            patchProgBar = new ProgressBar();
             PatcherTitleLabel = new Label();
             label1 = new Label();
             GeneratePatchBttn = new Button();
@@ -179,10 +179,10 @@
             // 
             // MainProgressBar
             // 
-            MainProgressBar.Location = new Point(8, 545);
-            MainProgressBar.Name = "MainProgressBar";
-            MainProgressBar.Size = new Size(874, 23);
-            MainProgressBar.TabIndex = 8;
+            patchProgBar.Location = new Point(8, 545);
+            patchProgBar.Name = "MainProgressBar";
+            patchProgBar.Size = new Size(874, 23);
+            patchProgBar.TabIndex = 8;
             // 
             // PatcherTitleLabel
             // 
@@ -363,7 +363,7 @@
             Controls.Add(OGFilePathBox);
             Controls.Add(label1);
             Controls.Add(PatcherTitleLabel);
-            Controls.Add(MainProgressBar);
+            Controls.Add(patchProgBar);
             Controls.Add(PatchBttn);
             Controls.Add(PFileLabel);
             Controls.Add(TFileLabel);
@@ -399,7 +399,7 @@
         private Label PFileLabel;
         private Button PatchBttn;
         public RichTextBox logBox;
-        public ProgressBar MainProgressBar;
+        public ProgressBar patchProgBar;
         private Label PatcherTitleLabel;
         private Label label1;
         private Button GeneratePatchBttn;

@@ -10,6 +10,8 @@ namespace BinPatch
 {
     public class Patcher
     {
+        //this only works with the new ui as of v0.1.1b despite old ui being present
+        //maybe one day I will improve the flexibility or add a log/progress toggle
         #region Instance
         private static Patcher? _instance;
         private static readonly object _lock = new object();
@@ -19,152 +21,151 @@ namespace BinPatch
             {
                 lock (_lock)
                 {
-                    if (_instance == null)
-                    {
-                        _instance = new Patcher();
-                    }
-                    return _instance;
+                    return _instance ??= new Patcher();
                 }
             }
         }
         #endregion Instance
-
-        #region VersionInfo
-        string version = "0.0.1b";
-        string github = "https://github.com/2003HondaCivic/BinPatch";
-        #endregion VersionInfo
+        #region Version
+        public string version = "0.1.1b";
+        public string github = "https://github.com/2003HondaCivic/BinPatch";
+        #endregion Version
 
         public string? targetFilePath;
-        public string? patchFilePath;
+        public string? patchFilePath; //not sure if I ever use these...
 
-        public void Patch(string targetFilePath, string patchFilePath)
+        public void Patch(string targetFilePath, string patchFilePath, bool md5 = true, bool backup = true)
         {
-            File.Copy(targetFilePath, targetFilePath + ".bak");
-            MainForm mainForm = (MainForm)Application.OpenForms["MainForm"];
-            SafeLog($"BinPatch version {version}", mainForm);
-            SafeLog($"BinPatch github: {github}", mainForm);
-            SafeLog($"Thank you for using BinPatch", mainForm);
+            var patcherForm = (BinPatch.Forms.PatcherForm)Application.OpenForms["PatcherForm"];
+            if (!File.Exists(patchFilePath) || !File.Exists(targetFilePath))
+            {
+                Log("[ERROR]: Target file or patch file not found.", patcherForm);
+                return;
+            }
+
+            Log($"BinPatch version {version}", patcherForm);
+            Log($"BinPatch github: {github}", patcherForm);
+            Log($"Thank you for using BinPatch", patcherForm);
+            if (MainSettings.Default.ForceIgnoreBackups) { backup = false; }
+            if (backup)
+            {
+                try
+                {
+                    File.Copy(targetFilePath, targetFilePath + ".bak");
+                }
+                catch
+                {
+                    Log($"[WARNING]: File {targetFilePath}.bak already exists. Skipping...", patcherForm);
+                }
+            }
 
             this.patchFilePath = patchFilePath;
             this.targetFilePath = targetFilePath;
 
-            if (!File.Exists(patchFilePath) || !File.Exists(targetFilePath))
-            {
-                SafeLog("ERROR: Target file or patch file not found.", mainForm);
-                return;
-            }
-
-            SafeLog($"INFO: Reading target file...", mainForm);
+            Log($"[INFO]: Reading target file...", patcherForm);
 
             try
             {
-                
-                var dummy = File.Open(targetFilePath, FileMode.Open);
-                dummy.Close();
-                dummy = File.Open(patchFilePath, FileMode.Open);
-                dummy.Close();
-                dummy = null;
+                File.Open(targetFilePath, FileMode.Open).Close();
+                File.Open(patchFilePath, FileMode.Open).Close();
             }
-            catch (IOException ex)
+            catch (IOException)
             {
-                SafeLog($"ERROR: One or more file(s) could not be read. Are the files locked?", mainForm);
+                Log($"[ERROR]: One or more file(s) could not be read. Are the files locked?", patcherForm);
             }
-            byte[] targetBytes = File.ReadAllBytes(targetFilePath);
-            string[] patchOperations = File.ReadAllLines(patchFilePath);
+
+            byte[] targetFileBytes = File.ReadAllBytes(targetFilePath);
+            string[] patchFileLines = File.ReadAllLines(patchFilePath);
             string expectedMD5 = "";
             long totalBytesRemoved = 0;
             long offset = 0;
-            string operation = "";
-            byte[] orgBytes = null;
-            byte[] newBytes = null;
+            string operationType = "";
+            byte[] originalBytes = null;
+            byte[] replacementBytes = null;
 
-            SafeUpdateProgress(mainForm, 10);
-            SafeLog($"INFO: Reading patch file and patching...", mainForm);
+            Log($"[INFO]: Reading patch file and patching...", patcherForm);
 
-            var operations = new List<PatchOperation>();
+            var patchOperations = new List<PatchOperation>();
 
-            foreach (string line in patchOperations)
+            foreach (string patchLine in patchFileLines)
             {
-                SafeUpdateProgress(mainForm, mainForm.MainProgressBar.Value + patchOperations.Length / 90);
+                UpdateProgress(patcherForm, patcherForm.patchProgBar.Value + patchFileLines.Length / 100);
 
-                if (line.StartsWith("#") || string.IsNullOrWhiteSpace(line))
-                    continue;
+                if (patchLine.StartsWith("#") || string.IsNullOrWhiteSpace(patchLine)) continue;
 
-                if (line.StartsWith("MD5:"))
+                if (patchLine.StartsWith("MD5:"))
                 {
-                    expectedMD5 = line.Split(':')[1].Trim();
-                    string actualMD5 = CalculateMD5(targetBytes);
+                    expectedMD5 = patchLine.Split(':')[1].Trim();
+                    string actualMD5 = CalculateMD5(targetFileBytes);
 
-                    if (!string.Equals(expectedMD5, actualMD5, StringComparison.OrdinalIgnoreCase))
+                    if (!string.Equals(expectedMD5, actualMD5, StringComparison.OrdinalIgnoreCase) && md5)
                     {
-                        SafeLog("ERROR: File version mismatch. Actual file MD5 does not match expected MD5.", mainForm);
-                        SafeUpdateProgress(mainForm, 0);
+                        Log("[ERROR]: File version mismatch. Actual file MD5 does not match expected MD5.", patcherForm);
+                        UpdateProgress(patcherForm, 0);
                         return;
                     }
                 }
-                else if (line.StartsWith("Offset:"))
+                else if (patchLine.StartsWith("Offset:"))
                 {
-                    offset = long.Parse(line.Split(':')[1].Trim().Replace("0x", ""), NumberStyles.HexNumber);
+                    offset = long.Parse(patchLine.Split(':')[1].Trim().Replace("0x", ""), NumberStyles.HexNumber);
                 }
-                else if (line.StartsWith("Operation:"))
+                else if (patchLine.StartsWith("Operation:"))
                 {
-                    operation = line.Split(':')[1].Trim();
+                    operationType = patchLine.Split(':')[1].Trim();
                 }
-                else if (line.StartsWith("TargetBytes:"))
+                else if (patchLine.StartsWith("TargetBytes:"))
                 {
-                    orgBytes = ParseHexBytes(line.Split(':')[1].Trim());
+                    originalBytes = ParseHexBytes(patchLine.Split(':')[1].Trim());
                 }
-                else if (line.StartsWith("NewBytes:"))
+                else if (patchLine.StartsWith("NewBytes:"))
                 {
-                    newBytes = ParseHexBytes(line.Split(':')[1].Trim());
+                    replacementBytes = ParseHexBytes(patchLine.Split(':')[1].Trim());
                 }
 
-                if (!string.IsNullOrEmpty(operation) && offset >= 0)
+                if (!string.IsNullOrEmpty(operationType) && offset >= 0)
                 {
-                    operations.Add(new PatchOperation
+                    patchOperations.Add(new PatchOperation
                     {
                         Offset = offset,
-                        Operation = operation,
-                        TargetBytes = orgBytes,
-                        NewBytes = newBytes
+                        Operation = operationType,
+                        TargetBytes = originalBytes,
+                        NewBytes = replacementBytes
                     });
 
                     offset = -1;
-                    operation = "";
-                    orgBytes = null;
-                    newBytes = null;
+                    operationType = "";
+                    originalBytes = null;
+                    replacementBytes = null;
                 }
             }
 
-
-            using (FileStream fs = new FileStream(targetFilePath, FileMode.Open, FileAccess.ReadWrite))
+            using (FileStream targetFileStream = new FileStream(targetFilePath, FileMode.Open, FileAccess.ReadWrite))
             {
-                foreach (var patchOperation in operations)
+                foreach (var patchOperation in patchOperations)
                 {
-
                     long adjustedOffset = patchOperation.Offset - totalBytesRemoved;
 
                     switch (patchOperation.Operation)
                     {
                         case "Overwrite":
-                            OverwriteBytes(fs, adjustedOffset, patchOperation.TargetBytes, patchOperation.NewBytes, mainForm);
+                            OverwriteBytes(targetFileStream, adjustedOffset, patchOperation.TargetBytes, patchOperation.NewBytes, patcherForm);
                             break;
                         case "Insert":
-                            InsertBytes(fs, adjustedOffset, patchOperation.NewBytes, mainForm);
+                            InsertBytes(targetFileStream, adjustedOffset, patchOperation.NewBytes, patcherForm);
                             break;
                         case "Remove":
-                            RemoveBytes(fs, adjustedOffset, patchOperation.TargetBytes, mainForm);
-                            totalBytesRemoved += patchOperation.TargetBytes.Length; 
+                            RemoveBytes(targetFileStream, adjustedOffset, patchOperation.TargetBytes, patcherForm);
+                            totalBytesRemoved += patchOperation.TargetBytes.Length;
                             break;
                         default:
-                            SafeLog($"ERROR: Unknown operation '{patchOperation.Operation}'. Please check your .patch file for errors.", mainForm);
+                            Log($"[ERROR]: Unknown operation '{patchOperation.Operation}'. Please check your .patch file for errors.", patcherForm);
                             break;
                     }
                 }
             }
 
-            SafeUpdateProgress(mainForm, 100);
-            SafeLog("Patch applied successfully!", mainForm);
+            UpdateProgress(patcherForm, 100);
+            Log("[INFO]: Patch applied successfully!", patcherForm);
         }
 
         class PatchOperation
@@ -180,68 +181,64 @@ namespace BinPatch
             return Enumerable.Range(0, hex.Length)
                              .Where(x => x % 2 == 0)
                              .Select(x => Convert.ToByte(hex.Substring(x, 2), 16))
-                             .ToArray();
+                             .ToArray(); //this code came to me in a dream
         }
 
-        static void OverwriteBytes(FileStream fs, long offset, byte[] targetBytes, byte[] newBytes, MainForm mainForm)
+        static void OverwriteBytes(FileStream fileStream, long offset, byte[] targetBytes, byte[] newBytes, BinPatch.Forms.PatcherForm patcherForm)
         {
-            fs.Seek(offset, SeekOrigin.Begin);
-
+            fileStream.Seek(offset, SeekOrigin.Begin);
             byte[] currentBytes = new byte[targetBytes.Length];
-            fs.Read(currentBytes, 0, targetBytes.Length);
+            fileStream.Read(currentBytes, 0, targetBytes.Length);
 
             if (!currentBytes.SequenceEqual(targetBytes))
             {
-                SafeLog($"ERROR: Target bytes do not match for Overwrite operation, aborting. Expected: {BitConverter.ToString(targetBytes)} Actual: {BitConverter.ToString(currentBytes)}", mainForm);
-                
+                Log($"[ERROR]: Target bytes do not match for Overwrite operation, aborting. Expected: {BitConverter.ToString(targetBytes)} Actual: {BitConverter.ToString(currentBytes)}", patcherForm);
                 return;
             }
 
-            fs.Seek(offset, SeekOrigin.Begin);
-            fs.Write(newBytes, 0, newBytes.Length);
-            SafeLog($"INFO: Overwrite operation successful at offset 0x{offset:X}.", mainForm);
+            fileStream.Seek(offset, SeekOrigin.Begin);
+            fileStream.Write(newBytes, 0, newBytes.Length);
+            Log($"[INFO]: Overwrite operation successful at offset 0x{offset:X}.", patcherForm);
         }
 
-        static void InsertBytes(FileStream fs, long offset, byte[] newBytes, MainForm mainForm)
+        static void InsertBytes(FileStream fileStream, long offset, byte[] newBytes, BinPatch.Forms.PatcherForm patcherForm)
         {
-            if (offset < 0 || offset > fs.Length)
+            if (offset < 0 || offset > fileStream.Length)
             {
-                SafeLog("ERROR: Insert offset is out of file bounds.", mainForm);
+                Log("[ERROR]: Insert offset is out of file bounds.", patcherForm);
                 return;
             }
 
-            fs.Seek(offset, SeekOrigin.Begin);
-            byte[] remainingBytes = new byte[fs.Length - offset];
-            fs.Read(remainingBytes, 0, remainingBytes.Length);
+            fileStream.Seek(offset, SeekOrigin.Begin);
+            byte[] remainingBytes = new byte[fileStream.Length - offset];
+            fileStream.Read(remainingBytes, 0, remainingBytes.Length);
 
-            fs.Seek(offset, SeekOrigin.Begin);
-            fs.Write(newBytes, 0, newBytes.Length);
-            fs.Write(remainingBytes, 0, remainingBytes.Length);
-            SafeLog($"INFO: Insert operation successful at offset 0x{offset:X}.", mainForm);
+            fileStream.Seek(offset, SeekOrigin.Begin);
+            fileStream.Write(newBytes, 0, newBytes.Length);
+            fileStream.Write(remainingBytes, 0, remainingBytes.Length);
+            Log($"[INFO]: Insert operation successful at offset 0x{offset:X}.", patcherForm);
         }
 
-        static void RemoveBytes(FileStream fs, long offset, byte[] targetBytes, MainForm mainForm)
+        static void RemoveBytes(FileStream fileStream, long offset, byte[] targetBytes, BinPatch.Forms.PatcherForm patcherForm)
         {
-            fs.Seek(offset, SeekOrigin.Begin);
-
+            fileStream.Seek(offset, SeekOrigin.Begin);
             byte[] currentBytes = new byte[targetBytes.Length];
-            fs.Read(currentBytes, 0, targetBytes.Length);
+            fileStream.Read(currentBytes, 0, targetBytes.Length);
 
             if (!currentBytes.SequenceEqual(targetBytes))
             {
-                SafeLog($"ERROR: Target bytes do not match for Remove operation. Expected: {BitConverter.ToString(targetBytes)} Actual: {BitConverter.ToString(currentBytes)}", mainForm);
+                Log($"[ERROR]: Target bytes do not match for Remove operation. Expected: {BitConverter.ToString(targetBytes)} Actual: {BitConverter.ToString(currentBytes)}", patcherForm);
                 return;
             }
 
-            byte[] remainingBytes = new byte[fs.Length - offset - targetBytes.Length];
-            fs.Seek(offset + targetBytes.Length, SeekOrigin.Begin);
-            fs.Read(remainingBytes, 0, remainingBytes.Length);
+            byte[] remainingBytes = new byte[fileStream.Length - offset - targetBytes.Length];
+            fileStream.Seek(offset + targetBytes.Length, SeekOrigin.Begin);
+            fileStream.Read(remainingBytes, 0, remainingBytes.Length);
 
-            fs.SetLength(offset);
-            fs.Seek(offset, SeekOrigin.Begin);
-
-            fs.Write(remainingBytes, 0, remainingBytes.Length);
-            SafeLog($"INFO: Remove operation successful at offset 0x{offset:X}.", mainForm);
+            fileStream.SetLength(offset);
+            fileStream.Seek(offset, SeekOrigin.Begin);
+            fileStream.Write(remainingBytes, 0, remainingBytes.Length);
+            Log($"[INFO]: Remove operation successful at offset 0x{offset:X}.", patcherForm);
         }
 
         static string CalculateMD5(byte[] fileBytes)
@@ -253,29 +250,61 @@ namespace BinPatch
             }
         }
 
-        static void SafeLog(string message, MainForm mainForm)
+        static void Log(string message, BinPatch.Forms.PatcherForm patcherForm)
         {
-            if (mainForm.InvokeRequired)
+            if (patcherForm.InvokeRequired)
             {
-                mainForm.Invoke(new Action(() => mainForm.logBox.AppendText("\n" + message)));
+                patcherForm.Invoke(new Action(() =>
+                {
+                    AppendLogMessage(message, patcherForm);
+                }));
             }
             else
             {
-                mainForm.logBox.AppendText("\n" + message);
+                AppendLogMessage(message, patcherForm);
             }
         }
 
-        static void SafeUpdateProgress(MainForm mainForm, int value)
+        static void AppendLogMessage(string message, BinPatch.Forms.PatcherForm patcherForm)
         {
-            if (mainForm.InvokeRequired)
+
+            patcherForm.patchLogBox.SelectionStart = patcherForm.patchLogBox.TextLength;
+            patcherForm.patchLogBox.SelectionLength = 0;
+
+         
+            if (message.StartsWith("[ERROR]"))
             {
-                mainForm.Invoke(new Action(() => mainForm.MainProgressBar.Value = value));
+                patcherForm.patchLogBox.SelectionColor = System.Drawing.Color.FromArgb(237, 135, 150);
+            }
+            else if (message.StartsWith("[WARNING]")){
+                patcherForm.patchLogBox.SelectionColor = System.Drawing.Color.FromArgb(238, 212, 159);
             }
             else
             {
-                mainForm.MainProgressBar.Value = value;
+                patcherForm.patchLogBox.SelectionColor = System.Drawing.Color.FromArgb(202, 211, 245); // Default color
             }
+
+            
+            patcherForm.patchLogBox.AppendText("\n" + message);
+
+
+            patcherForm.patchLogBox.SelectionColor = patcherForm.patchLogBox.ForeColor;
         }
 
+        static void UpdateProgress(BinPatch.Forms.PatcherForm patcherForm, int value)
+        {
+            if (value > 100)
+            {
+                value = 100;
+            }
+            if (patcherForm.InvokeRequired)
+            {
+                patcherForm.Invoke(new Action(() => patcherForm.patchProgBar.Value = value));
+            }
+            else
+            {
+                patcherForm.patchProgBar.Value = value;
+            }
+        }
     }
 }

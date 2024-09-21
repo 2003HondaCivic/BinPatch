@@ -8,18 +8,24 @@ namespace BinPatch
 {
     public class PatchFileGenerator
     {
-        public static void GeneratePatchFile(string sourceFilePath, string targetFilePath, string patchFilePath, string author = "Placeholder", string version = "Placeholder", string description = "Placeholder")
+        public static void GeneratePatchFile(string sourceFilePath, string targetFilePath, string patchFilePath, string author = "Placeholder", string version = "Placeholder", string description = "Placeholder", bool md5 = true)
         {
-            MainForm mainForm = (MainForm)Application.OpenForms["MainForm"];
+            BinPatch.Forms.PatchGenForm mainForm = (BinPatch.Forms.PatchGenForm)Application.OpenForms["PatchGenForm"];
             if (!File.Exists(sourceFilePath) || !File.Exists(targetFilePath))
             {
-                SafeLog("ERROR: Source file or target file not found.", mainForm);
+                Log("[ERROR]: Source file or target file not found.", mainForm);
 
                 return;
             }
 
             byte[] sourceBytes = File.ReadAllBytes(sourceFilePath);
             byte[] targetBytes = File.ReadAllBytes(targetFilePath);
+
+            if (sourceBytes == targetBytes) 
+            {
+                Log("[WARNING]: Files appear to be the same, continuing...", mainForm);
+            }
+
             using (StreamWriter writer = new StreamWriter(patchFilePath))
             {
                 // Writing header information
@@ -35,9 +41,11 @@ namespace BinPatch
                 writer.WriteLine("# NewBytes: <hex bytes> (for Insert or Overwrite)");
                 writer.WriteLine("# Operation: <Remove | Insert | Overwrite> (Must be last parameter)");
                 writer.WriteLine("#===================================================");
-
-                string md5Checksum = CalculateMD5(sourceBytes, mainForm);
-                writer.WriteLine($"MD5: {md5Checksum}");
+                if (md5)
+                {
+                    string md5Checksum = CalculateMD5(sourceBytes, mainForm);
+                    writer.WriteLine($"MD5: {md5Checksum}");
+                }
 
                 int sourceOffset = 0;
                 int targetOffset = 0;
@@ -69,7 +77,7 @@ namespace BinPatch
                                 writer.WriteLine($"Offset: 0x{startOffset:X}");
                                 writer.WriteLine($"TargetBytes: {BitConverter.ToString(removeBytes.ToArray()).Replace("-", "")}");
                                 writer.WriteLine("Operation: Remove");
-                                SafeLog("Added remove operation...", mainForm);
+                                Log("[INFO]: Added remove operation...", mainForm);
                             }
                             else
                             {
@@ -77,7 +85,7 @@ namespace BinPatch
                                 writer.WriteLine($"TargetBytes: {BitConverter.ToString(removeBytes.ToArray()).Replace("-", "")}");
                                 writer.WriteLine($"NewBytes: {BitConverter.ToString(overwriteBytes.ToArray()).Replace("-", "")}");
                                 writer.WriteLine("Operation: Overwrite");
-                                SafeLog("Added overwrite operation...", mainForm);
+                                Log("[INFO]: Added overwrite operation...", mainForm);
                             }
 
                             continue;
@@ -99,37 +107,67 @@ namespace BinPatch
                         writer.WriteLine($"Offset: 0x{startOffset:X}");
                         writer.WriteLine($"NewBytes: {BitConverter.ToString(insertBytes.ToArray()).Replace("-", "")}");
                         writer.WriteLine("Operation: Insert");
-                        SafeLog("Added insert operation...", mainForm);
+                        Log("[INFO]: Added insert operation...", mainForm);
                     }
 
                     sourceOffset++;
                     targetOffset++;
                 }
 
-                SafeLog("Patch file generated successfully.", mainForm);
+                Log("[INFO]: Patch file generated successfully.", mainForm);
             }
         }
 
-        private static string CalculateMD5(byte[] fileBytes, MainForm mainForm)
+        private static string CalculateMD5(byte[] fileBytes, BinPatch.Forms.PatchGenForm mainForm)
         {
             using (MD5 md5 = MD5.Create())
             {
                 byte[] hashBytes = md5.ComputeHash(fileBytes);
-                SafeLog("Calculating MD5...", mainForm);
+                Log("[INFO]: Calculating MD5...", mainForm);
                 return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
             }
         }
 
-        static void SafeLog(string message, MainForm mainForm)
+        static void Log(string message, BinPatch.Forms.PatchGenForm patchGenForm)
         {
-            if (mainForm.InvokeRequired)
+            if (patchGenForm.InvokeRequired)
             {
-                mainForm.Invoke(new Action(() => mainForm.GenLogBox.AppendText("\n" + message)));
+                patchGenForm.Invoke(new Action(() =>
+                {
+                    AppendLogMessage(message, patchGenForm);
+                }));
             }
             else
             {
-                mainForm.GenLogBox.AppendText("\n" + message);
+                AppendLogMessage(message, patchGenForm);
             }
+        }
+
+        static void AppendLogMessage(string message, BinPatch.Forms.PatchGenForm patchGenForm)
+        {
+
+            patchGenForm.GenLogBox.SelectionStart = patchGenForm.GenLogBox.TextLength;
+            patchGenForm.GenLogBox.SelectionLength = 0;
+
+
+            if (message.StartsWith("[ERROR]"))
+            {
+                patchGenForm.GenLogBox.SelectionColor = System.Drawing.Color.FromArgb(237, 135, 150); 
+            }
+            else if (message.StartsWith("[WARNING]"))
+            {
+                patchGenForm.GenLogBox.SelectionColor = System.Drawing.Color.FromArgb(238, 212, 159); 
+            }
+            else
+            {
+                patchGenForm.GenLogBox.SelectionColor = System.Drawing.Color.FromArgb(202, 211, 245); 
+            }
+
+
+            patchGenForm.GenLogBox.AppendText("\n" + message);
+
+
+            patchGenForm.GenLogBox.SelectionColor = patchGenForm.GenLogBox.ForeColor;
         }
     }
 }
