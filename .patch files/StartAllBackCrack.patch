@@ -1,0 +1,17 @@
+# Author: 2003 Honda Civic
+# Target File: StartAllBackX64.dll
+# Target File Version: 1.0.0
+# Description: License key bypass
+#===================================================
+# BinPatch Docs & Formatting:
+# MD5: <md5 checksum> (optional for file version verification)
+# Address: <hex address>
+# TargetBytes: <hex bytes> (for Remove or Overwrite)
+# NewBytes: <hex bytes> (for Insert or Overwrite)
+# Operation: <Remove | Insert | Overwrite> (Must be last parameter)
+#===================================================
+MD5: 9e505a6f191322df9d6f47719e962d01
+Offset: 0x13D8
+TargetBytes: 48895C2408555657488DAC2470FFFFFF
+NewBytes: 67C70101000000B801000000C3909090
+Operation: Overwrite
